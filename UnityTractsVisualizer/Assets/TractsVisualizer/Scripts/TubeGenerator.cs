@@ -12,6 +12,7 @@ using UnityEngine;
 
 public class TubeGenerator : MonoBehaviour
 {
+	public bool normalize;        // Normalize data between -1 and 1
 	public int dequeSize = 10000; // How many generated tubes to be sent to the GPU every frame   
 	public float decimation = 0;  // Decimation level, between 0 and 1. If set to 0, each polyline will have only two vertices (the endpoints)
 	public float scale = 1;       // To resize the vertex data
@@ -59,8 +60,47 @@ public class TubeGenerator : MonoBehaviour
 			}
 		}
 		
+		// Normalize if necessary
+		if(normalize) {
+			Normalize();
+		}
+		
 		// Generate tubes
 		UpdateTubes();
+	}
+	
+	
+	// Normalize
+	private void Normalize() {
+		// Get min and max of each axis
+		Vector3 min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+		Vector3 max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+		
+		for(int i=0; i<polylines.Length; i++) {
+			for(int j=0; j<polylines[i].Length; j++) {
+				if(polylines[i][j].x < min.x) min.x = polylines[i][j].x;
+				if(polylines[i][j].y < min.y) min.y = polylines[i][j].y;
+				if(polylines[i][j].z < min.z) min.z = polylines[i][j].z;
+				
+				if(polylines[i][j].x > max.x) max.x = polylines[i][j].x;
+				if(polylines[i][j].y > max.y) max.y = polylines[i][j].y;
+				if(polylines[i][j].z > max.z) max.z = polylines[i][j].z;
+			}
+		}
+		
+		for(int i=0; i<polylines.Length; i++) {
+			for(int j=0; j<polylines[i].Length; j++) {
+				polylines[i][j] = Normalize(polylines[i][j], min, max);
+			}
+		}
+	}
+	
+	private Vector3 Normalize(Vector3 v, Vector3 min, Vector3 max) {
+		return new Vector3(Normalize(v.x, min.x, max.x), Normalize(v.y, min.y, max.y), Normalize(v.z, min.z, max.z));
+	}
+	
+	private float Normalize(float x, float min, float max) {
+		return (x-min)/(max-min);
 	}
 	
 	// Only update tubes
@@ -90,10 +130,6 @@ public class TubeGenerator : MonoBehaviour
 		
 		// If user wants less threads, set it to that
 		ncpus = numberOfThreads < ncpus ? numberOfThreads : ncpus;
-
-		// Avoid negative number of cpus
-		if(ncpus < 0)
-			ncpus = 1;
 		
 		// Decimate points
 		int npoints = 0;
@@ -112,18 +148,24 @@ public class TubeGenerator : MonoBehaviour
 		}
 		
 		// Create tubes using specified number of threads
-		Thread [] threads = new Thread[ncpus];
-		
-		// Lines per thread
-		int lpt = polylines.Length/ncpus;
-		
-		for(int i=0; i<ncpus; i++) {
-			threads[i] = new Thread(()=>ThreadCreateTubes());
+		if(ncpus > 0) {
+			Thread [] threads = new Thread[ncpus];
+			
+			// Lines per thread
+			int lpt = polylines.Length/ncpus;
+			
+			for(int i=0; i<ncpus; i++) {
+				threads[i] = new Thread(()=>ThreadCreateTubes());
+			}
+			
+			// Start threads
+			for(int i=0; i<ncpus; i++) {
+				threads[i].Start();
+			}
 		}
-		
-		// Start threads
-		for(int i=0; i<ncpus; i++) {
-			threads[i].Start();
+		// Do not use threads (for web)
+		else {
+			ThreadCreateTubes();
 		}
 	}
 	

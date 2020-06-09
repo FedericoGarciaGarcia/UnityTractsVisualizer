@@ -17,6 +17,7 @@ public class TubeGeneratorFromObj : TubeGenerator
 {
 	public string path; // Path or URL to file
 	public GameObject loading; // A GameObject that is disabled after the data is generated
+	public bool threadedDownload;
 	
 	void Start()
 	{
@@ -65,10 +66,13 @@ public class TubeGeneratorFromObj : TubeGenerator
 			// Convert MemoryStream to StreamReader
 			StreamReader reader = new StreamReader(stream);
 			
-			// Run this in a thread
-			Thread thread = new Thread(()=>LoadFromStream(reader));
-			thread.Start();
-            
+			if(threadedDownload) {
+				Thread thread = new Thread(()=>LoadFromStream(reader));
+				thread.Start();
+			}
+			else {
+				LoadFromStream(reader);
+			}
         }
     }
 	
