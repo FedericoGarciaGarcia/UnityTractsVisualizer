@@ -1,13 +1,8 @@
 # UnityTractsVisualizer
 Tract data interaction and visualization with LOD in Unity.
-
-![Obj](https://raw.githubusercontent.com/FedericoGarciaGarcia/UnityTubeExtrusion/master/Images/Corpus%20callosum%20AO.jpg)
-
-## Web app
-
 You can try the web app [here](https://htmlpreview.github.io/?https://github.com/FedericoGarciaGarcia/UnityTractsVisualizer/blob/development/Web/index.html). Multithreading is not supported on web.
 
-![Web](https://raw.githubusercontent.com/FedericoGarciaGarcia/UnityTractsVisualizer/development/Images/web%20app.png)
+![Obj](https://raw.githubusercontent.com/FedericoGarciaGarcia/UnityTubeExtrusion/master/Images/Corpus%20callosum%20AO.jpg)
 
 ## Features
 
