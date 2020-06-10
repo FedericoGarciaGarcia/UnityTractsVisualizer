@@ -47,6 +47,8 @@ public class TubeGenerator : MonoBehaviour
 		// Use all original polylines
 		polylines = allpolylines;
 		
+		Debug.Log(polylines.Length);
+		
 		// Radius
 		radii = new float[polylines.Length][];
 		

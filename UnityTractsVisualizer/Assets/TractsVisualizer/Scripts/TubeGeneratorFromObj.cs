@@ -21,6 +21,9 @@ public class TubeGeneratorFromObj : TubeGenerator
 	
 	void Start()
 	{
+		// We override path with SceneController's path
+		path = SceneController.objPath;
+		
 		// If its URL, download data in a coroutine, then in
 		if(path.StartsWith("https:") || path.StartsWith("http:")) {
 			StartCoroutine(LoadFromURL(path));
