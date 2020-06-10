@@ -1,11 +1,11 @@
 # UnityTractsVisualizer
-Tract data visualization by extrusion of polylines and LOD in Unity.
+Tract data interaction and visualization with LOD in Unity.
 
 ![Obj](https://raw.githubusercontent.com/FedericoGarciaGarcia/UnityTubeExtrusion/master/Images/Corpus%20callosum%20AO.jpg)
 
 ## Features
 
-* Tube extrusion from OBJ polyline file.
+* Tube extrusion.
 * Texturing.
 * Coloring.
 ** By polyline file order.
