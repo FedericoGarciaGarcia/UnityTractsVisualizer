@@ -8,9 +8,9 @@ Tract data interaction and visualization with LOD in Unity.
 * Tube extrusion.
 * Texturing.
 * Coloring.
-** By polyline file order.
-** By axis direction.
-** By similarity.
+    * By polyline file order.
+    * By axis direction.
+    * By similarity.
 * Resolution.
 * Decimation by angle.
 * End capping.
@@ -36,10 +36,10 @@ OBJ files do not need to be included in Unity's Asset or Resources folder. URLs 
 
 Before tube extrusion and LOD grouping, the following properties may be specified:
 
-* *LOD*
+* *LOD Distance Threshold*: if lines have this much distance, they will no merge.
 * *LOD*: how many levels of LOD should be generated.
 * *Deque size:* how many tubes are to be sent to the GPU each frame after extrusion. If value is too high, there will be a performance hit. 50 by default.
-* *Decimation:* beween 0 and 1. Percentage of points to be used in each polyline. 0 means all points are used, 0.5 means only half the points are used, etc. Points are evenly skipped. Useful for dense polylines. 0 by default.
+* *Decimation Angle:* beween 0 and 180. Given three adyacent points P<sub>i</sub>, P<sub>i+1</sub> and P<sub>i+2</sub>, so that P<sub>j</sub> and P<sub>j+1</sub> are adjacent for all **j**.
 * *Scale:* rescaling of the polylines. 1 by default (no rescaling).
 * *Radius:* the tube 'thickness'. 1 by default.
 * *Resolution:* number of sides in each tube. 3 by default.
