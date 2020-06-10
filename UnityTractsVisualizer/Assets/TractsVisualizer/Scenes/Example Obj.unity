@@ -217,7 +217,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 147924614}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dec9bcd320307c14a802d3a91e7d89b9, type: 3}
   m_Name: 
@@ -233,7 +233,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 147924614}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 304ee470683f13c4c8a38f0eca757a24, type: 3}
   m_Name: 
@@ -621,13 +621,13 @@ MonoBehaviour:
   dequeSize: 1000
   decimation: 0.5
   scale: 10
-  radius: 0.015
+  radius: 0.02
   resolution: 7
   material: {fileID: 2100000, guid: b215c75a19ea68b40807310f79d10578, type: 2}
   colorStart: {r: 1, g: 0, b: 0, a: 1}
   colorEnd: {r: 0, g: 1, b: 0, a: 1}
-  numberOfThreads: 0
-  path: https://raw.githubusercontent.com/FedericoGarciaGarcia/UnityTractsVisualizer/development/UnityTractsVisualizer/Resources/corpuscallosum.obj
+  numberOfThreads: 7
+  path: Resources/fibres.obj
   loading: {fileID: 1282734515}
   threadedDownload: 0
 --- !u!4 &1516561062
@@ -760,7 +760,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1597371310}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8ceec3ccfe7c2eb47bef80775ffde6dd, type: 3}
   m_Name: 
@@ -801,7 +801,7 @@ Light:
   m_InnerSpotAngle: 21.80208
   m_CookieSize: 10
   m_Shadows:
-    m_Type: 0
+    m_Type: 2
     m_Resolution: -1
     m_CustomResolution: -1
     m_Strength: 1
