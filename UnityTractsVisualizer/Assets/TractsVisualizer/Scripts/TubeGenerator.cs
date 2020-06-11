@@ -12,7 +12,7 @@ using UnityEngine;
 
 public class TubeGenerator : MonoBehaviour
 {
-	public bool normalize;        // Normalize data between -1 and 1
+	public bool normalize;        // Normalize data between 0 and 1
 	public int dequeSize = 10000; // How many generated tubes to be sent to the GPU every frame   
 	public float decimation = 0;  // Decimation level, between 0 and 1. If set to 0, each polyline will have only two vertices (the endpoints)
 	public float scale = 1;       // To resize the vertex data
@@ -21,6 +21,7 @@ public class TubeGenerator : MonoBehaviour
 	public Material material;     // Texture (can be null)
 	public Color colorStart = Color.white; // Start color
 	public Color colorEnd   = Color.white; // End color
+	public int lodVoxels = 100;  // Group start and end points in this number of voxels      
 		
 	public int numberOfThreads = 1; // Number of threads used to generate tube.
 	
@@ -30,10 +31,17 @@ public class TubeGenerator : MonoBehaviour
 	protected Tube [] tubes;          // Tubes
 	protected bool [] attached;       // If actors have already have their tube attached
 	
+	protected Dictionary<Tuple<Vector3Int, Vector3Int>, List<int>> dictionaryLOD; // Key = voxel start, voxel end | Value = line IDs in those voxels
+	protected Vector3 [][] polylinesLOD; // To store LOD polylines data
+	protected float   [][] radiiLOD;     // To store LOD radius data
+	protected GameObject [] actorsLOD;   // Gameobjects that will have LODtubes attached
+	protected Tube [] tubesLOD;          // LOD Tubes
+	
 	protected int ncpus; // How many CPU cores are available
 	
 	// For safe multithreading
 	protected int nextLine;
+	protected int nextMerge;
 	protected readonly object _lock  = new object();
 	protected readonly object _enque = new object();
 
@@ -43,6 +51,9 @@ public class TubeGenerator : MonoBehaviour
     protected IEnumerator Generate(Vector3 [][] allpolylines)
     {
 		yield return null;
+		
+		// Dictionary for LOD
+		dictionaryLOD = new Dictionary<Tuple<Vector3Int, Vector3Int>, List<int>>();
 		
 		// Use all original polylines
 		polylines = allpolylines;
@@ -121,6 +132,7 @@ public class TubeGenerator : MonoBehaviour
 		
 		// Create game objects
 		actors = new GameObject[polylines.Length];
+		actorsLOD = new GameObject[polylines.Length]; // LOD will have less than actors
 		
 		// Attach an actor to the game object
 		for(int i=0; i<actors.Length; i++) {
@@ -132,6 +144,7 @@ public class TubeGenerator : MonoBehaviour
 		
 		// To store tubes
 		tubes = new Tube[polylines.Length];
+		tubesLOD = new Tube[polylines.Length];
 		
 		Process();
 	}
@@ -140,6 +153,7 @@ public class TubeGenerator : MonoBehaviour
 	public void Process() {
 		// Init lock index
 		nextLine = 0;
+		nextMerge = 0;
 		
 		// Create tubes using specified number of threads
 		if(ncpus > 0) {
@@ -187,6 +201,41 @@ public class TubeGenerator : MonoBehaviour
 	// Create tube in a thread
 	public void ThreadCreateTubes() {
 		
+		// Merge polylines
+		while(nextMerge < polylines.Length) {
+
+			int x;
+			lock(_lock) {
+				x = nextMerge;
+				nextMerge++; // For the next thread
+				
+				if(x < polylines.Length) {
+					// Get voxel positions
+					Vector3Int v1 = new Vector3Int((int)(polylines[x][0].x*lodVoxels),
+												   (int)(polylines[x][0].y*lodVoxels),
+												   (int)(polylines[x][0].z*lodVoxels));
+												   
+					Vector3Int v2 = new Vector3Int((int)(polylines[x][polylines[x].Length-1].x*lodVoxels),
+												   (int)(polylines[x][polylines[x].Length-1].y*lodVoxels),
+												   (int)(polylines[x][polylines[x].Length-1].z*lodVoxels));
+					
+					// Add to the dictionary
+					Tuple<Vector3Int, Vector3Int> t = new Tuple<Vector3Int, Vector3Int>(v1, v2);
+					
+					// If it is a new value, create list first
+					if (!dictionaryLOD.ContainsKey(t)) {
+						dictionaryLOD.Add(t, new List<int>());
+					}
+					
+					// Add to the list this polyline ID
+					dictionaryLOD[new Tuple<Vector3Int, Vector3Int>(v1, v2)].Add(x);
+				}
+			}
+		}
+		
+		// 
+		
+		// Create tubes
         while(nextLine < polylines.Length) {
 		    // If we directly use i instead of x "AttachTubeToGameobject(i)" we have a concurrency problem;
 		    // The thread modifies i so when the coroutine starts it may have strange i values

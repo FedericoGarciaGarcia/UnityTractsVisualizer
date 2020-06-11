@@ -31,10 +31,10 @@ public class TubeGeneratorFromObjMenu : TubeGeneratorFromObj
 		Dispatch();
 		
 		// Enable or disable update button
-		lock(_lock) {
+		/*lock(_lock) {
 			if(polylines != null)
 			buttonUpdate.interactable = nextLine == polylines.Length;
-		};
+		};*/
 	}
 	
 	protected override IEnumerator AfterLoading() {
