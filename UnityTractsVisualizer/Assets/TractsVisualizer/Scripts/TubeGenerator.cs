@@ -49,6 +49,12 @@ public class TubeGenerator : MonoBehaviour
 		
 		Debug.Log(polylines.Length);
 		
+		// Number of CPUS to use for tubing
+		ncpus = SystemInfo.processorCount;
+		
+		// If user wants less threads, set it to that
+		ncpus = numberOfThreads < ncpus ? numberOfThreads : ncpus;
+		
 		// Radius
 		radii = new float[polylines.Length][];
 		
@@ -134,12 +140,6 @@ public class TubeGenerator : MonoBehaviour
 	public void Process() {
 		// Init lock index
 		nextLine = 0;
-		
-		// Number of CPUS to use for tubing
-		ncpus = SystemInfo.processorCount;
-		
-		// If user wants less threads, set it to that
-		ncpus = numberOfThreads < ncpus ? numberOfThreads : ncpus;
 		
 		// Create tubes using specified number of threads
 		if(ncpus > 0) {
