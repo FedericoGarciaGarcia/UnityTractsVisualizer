@@ -25,6 +25,8 @@ public class TubeGenerator : MonoBehaviour
 		
 	public int numberOfThreads = 1; // Number of threads used to generate tube.
 	
+	private Vector3 [][] allpolylines; // Original polyline data
+	
 	protected Vector3 [][] polylines; // To store polylines data
 	protected float   [][] radii;     // To store radius data
 	protected GameObject [] actors;   // Gameobjects that will have tubes attached
@@ -40,9 +42,12 @@ public class TubeGenerator : MonoBehaviour
 	protected int ncpus; // How many CPU cores are available
 	
 	// For safe multithreading
+	protected int nextPreprocess;
 	protected int nextLine;
-	protected int nextMerge;
+	protected int finishedPreprocess;
+	protected readonly object _dictionary = new object();
 	protected readonly object _lock  = new object();
+	protected readonly object _finishedPreprocess = new object();
 	protected readonly object _enque = new object();
 
 	// To dispatch coroutines
@@ -56,9 +61,13 @@ public class TubeGenerator : MonoBehaviour
 		dictionaryLOD = new Dictionary<Tuple<Vector3Int, Vector3Int>, List<int>>();
 		
 		// Use all original polylines
-		polylines = allpolylines;
+		this.allpolylines = allpolylines;
+		polylines = new Vector3[allpolylines.Length][];
 		
-		Debug.Log(polylines.Length);
+		Debug.Log(allpolylines.Length);
+		
+		// Radius
+		radii = new float[allpolylines.Length][];
 		
 		// Number of CPUS to use for tubing
 		ncpus = SystemInfo.processorCount;
@@ -66,13 +75,7 @@ public class TubeGenerator : MonoBehaviour
 		// If user wants less threads, set it to that
 		ncpus = numberOfThreads < ncpus ? numberOfThreads : ncpus;
 		
-		// Radius
-		radii = new float[polylines.Length][];
-		
-		// Set initial radius
-		UpdateRadius();
-		
-		// Normalize if necessary
+		// Normalize if necessary (original polylines)
 		if(normalize) {
 			Normalize();
 		}
@@ -81,38 +84,27 @@ public class TubeGenerator : MonoBehaviour
 		UpdateTubes();
 	}
 	
-	protected void UpdateRadius() {
-		for(int i=0; i<radii.Length; i++) {
-			
-			radii[i] = new float [polylines[i].Length];
-			
-			for(int j=0; j<radii[i].Length; j++) {
-				radii[i][j] = radius;
-			}
-		}
-	}
-	
 	// Normalize
 	private void Normalize() {
 		// Get min and max of each axis
 		Vector3 min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
 		Vector3 max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
 		
-		for(int i=0; i<polylines.Length; i++) {
-			for(int j=0; j<polylines[i].Length; j++) {
-				if(polylines[i][j].x < min.x) min.x = polylines[i][j].x;
-				if(polylines[i][j].y < min.y) min.y = polylines[i][j].y;
-				if(polylines[i][j].z < min.z) min.z = polylines[i][j].z;
+		for(int i=0; i<allpolylines.Length; i++) {
+			for(int j=0; j<allpolylines[i].Length; j++) {
+				if(allpolylines[i][j].x < min.x) min.x = allpolylines[i][j].x;
+				if(allpolylines[i][j].y < min.y) min.y = allpolylines[i][j].y;
+				if(allpolylines[i][j].z < min.z) min.z = allpolylines[i][j].z;
 				
-				if(polylines[i][j].x > max.x) max.x = polylines[i][j].x;
-				if(polylines[i][j].y > max.y) max.y = polylines[i][j].y;
-				if(polylines[i][j].z > max.z) max.z = polylines[i][j].z;
+				if(allpolylines[i][j].x > max.x) max.x = allpolylines[i][j].x;
+				if(allpolylines[i][j].y > max.y) max.y = allpolylines[i][j].y;
+				if(allpolylines[i][j].z > max.z) max.z = allpolylines[i][j].z;
 			}
 		}
 		
-		for(int i=0; i<polylines.Length; i++) {
-			for(int j=0; j<polylines[i].Length; j++) {
-				polylines[i][j] = Normalize(polylines[i][j], min, max);
+		for(int i=0; i<allpolylines.Length; i++) {
+			for(int j=0; j<allpolylines[i].Length; j++) {
+				allpolylines[i][j] = Normalize(allpolylines[i][j], min, max);
 			}
 		}
 	}
@@ -151,28 +143,27 @@ public class TubeGenerator : MonoBehaviour
 	
 	// Divide work into threads and start from the beginning
 	public void Process() {
+		// Clear dictionary
+		dictionaryLOD.Clear();
+		
 		// Init lock index
+		nextPreprocess = 0;
 		nextLine = 0;
-		nextMerge = 0;
+		
+		finishedPreprocess = 0;
 		
 		// Create tubes using specified number of threads
 		if(ncpus > 0) {
-			Thread [] threads = new Thread[ncpus];
-			
-			// Lines per thread
-			int lpt = polylines.Length/ncpus;
-			
-			for(int i=0; i<ncpus; i++) {
-				threads[i] = new Thread(()=>ThreadCreateTubes());
-			}
 			
 			// Start threads
 			for(int i=0; i<ncpus; i++) {
-				threads[i].Start();
+				Thread t = new Thread(()=>ThreadPreprocess());
+				t.Start();
 			}
 		}
 		// Do not use threads (for web)
 		else {
+			ThreadPreprocess();
 			ThreadCreateTubes();
 		}
 	}
@@ -197,29 +188,69 @@ public class TubeGenerator : MonoBehaviour
 			}
 		}
 	}
-	
-	// Create tube in a thread
-	public void ThreadCreateTubes() {
+
+	// Preprocess poylines in a thread: decimate, put radius, and add to dictionary for merging
+	public void ThreadPreprocess() {
 		
-		// Merge polylines
-		while(nextMerge < polylines.Length) {
+		// Decimate polylines
+		while(nextPreprocess < allpolylines.Length) {
 
 			int x;
 			lock(_lock) {
-				x = nextMerge;
-				nextMerge++; // For the next thread
+				x = nextPreprocess;
+				nextPreprocess++; // For the next thread
+			}
+			
+			if(x < allpolylines.Length) {
 				
-				if(x < polylines.Length) {
-					// Get voxel positions
-					Vector3Int v1 = new Vector3Int((int)(polylines[x][0].x*lodVoxels),
-												   (int)(polylines[x][0].y*lodVoxels),
-												   (int)(polylines[x][0].z*lodVoxels));
-												   
-					Vector3Int v2 = new Vector3Int((int)(polylines[x][polylines[x].Length-1].x*lodVoxels),
-												   (int)(polylines[x][polylines[x].Length-1].y*lodVoxels),
-												   (int)(polylines[x][polylines[x].Length-1].z*lodVoxels));
-					
-					// Add to the dictionary
+				// Estimate number of polylines and vertices
+				int npoints = (int)((1.0f-decimation) * (float)allpolylines[x].Length);
+				
+				// If there are not even 2 points, the decimation was too much
+				if(npoints < 2) {
+					decimation = 1.0f;
+					npoints = allpolylines[x].Length;
+				}
+				
+				// New polyline
+				polylines[x] = new Vector3[npoints];
+				
+				// Convert to one single polyline decimating
+				float skip = (float)allpolylines[x].Length/(float)npoints;
+				
+				int [] skipIndices = new int[npoints];
+				
+				float currentSkip = 0;
+				for(int i=0; i<npoints; i++) {
+					skipIndices[i] = (int)currentSkip;
+					currentSkip += skip;
+				}
+				
+				skipIndices[skipIndices.Length-1] = allpolylines[x].Length-1; // Make sure last vertex is the real last vertex
+				
+				// Set with skip indices
+				for(int i=0; i<npoints; i++) {
+					polylines[x][i] = allpolylines[x][skipIndices[i]];
+				}
+				 
+				// Radius
+				radii[x] = new float[polylines[x].Length];
+				
+				for(int j=0; j<radii[x].Length; j++) {
+					radii[x][j] = radius;
+				}
+				
+				// Get voxel positions
+				Vector3Int v1 = new Vector3Int((int)(polylines[x][0].x*lodVoxels),
+											   (int)(polylines[x][0].y*lodVoxels),
+											   (int)(polylines[x][0].z*lodVoxels));
+											   
+				Vector3Int v2 = new Vector3Int((int)(polylines[x][polylines[x].Length-1].x*lodVoxels),
+											   (int)(polylines[x][polylines[x].Length-1].y*lodVoxels),
+											   (int)(polylines[x][polylines[x].Length-1].z*lodVoxels));
+				
+				// Add to the dictionary
+				lock(_dictionary) {
 					Tuple<Vector3Int, Vector3Int> t = new Tuple<Vector3Int, Vector3Int>(v1, v2);
 					
 					// If it is a new value, create list first
@@ -233,7 +264,25 @@ public class TubeGenerator : MonoBehaviour
 			}
 		}
 		
-		// 
+		Debug.Log("Decimated!");
+		
+		// When done, clock out
+		lock(_finishedPreprocess) {
+			finishedPreprocess++;
+			
+			// Whoever is last, must call the next threads to create tubes
+			if(finishedPreprocess == ncpus) {
+				for(int i=0; i<ncpus; i++) {
+					Thread t = new Thread(()=>ThreadCreateTubes());
+					t.Start();
+				}
+		
+				Debug.Log("It is me!");
+			}
+		}
+	}
+		
+	public void ThreadCreateTubes() {
 		
 		// Create tubes
         while(nextLine < polylines.Length) {
@@ -257,6 +306,8 @@ public class TubeGenerator : MonoBehaviour
 				}
 			}
 		}
+		
+		Debug.Log("Done!");
     }
 	
 	// Coroutine to attach tube to actor

@@ -37,6 +37,7 @@ public class Tube
 		resolution ++;
 		
 		// Set properties
+		this.polyline   = polyline;
 		this.decimation = decimation;
 		this.scale      = scale;
 		this.radii      = radii;
@@ -53,16 +54,13 @@ public class Tube
 		
 		circle[resolution-1] = circle[0];
 		
-		// Estimate number of polylines and vertices
-		int npoints = (int)((1.0f-decimation) * (float)polyline.Length);
-		
-		// If there are not even 2 points, the decimation was too much
-		if(npoints < 2) {
-			decimation = 1.0f;
-			npoints = polyline.Length;
+					
+		// Rescale with skip indices
+		for(int i=0; i<this.polyline.Length; i++) {
+			this.polyline[i] = polyline[i] * scale;
 		}
 		
-		int nvertices = (npoints+4) * resolution+4;
+		int nvertices = (polyline.Length+4) * resolution+4;
         vertices = new Vector3[nvertices];
 		
 		// Colors
@@ -75,26 +73,7 @@ public class Tube
 		// Generate uv data
 		uv = new Vector2[nvertices];
 		
-		// This polyline
-		this.polyline = new Vector3[npoints];
 		
-		// Convert to one single polyline rescaling and decimating
-		float skip = (float)polyline.Length/(float)npoints;
-		
-		int [] skipIndices = new int[npoints];
-		
-		float currentSkip = 0;
-		for(int i=0; i<npoints; i++) {
-			skipIndices[i] = (int)currentSkip;
-			currentSkip += skip;
-        }
-		
-		skipIndices[skipIndices.Length-1] = polyline.Length-1; // Make sure last vertex is the real last vertex
-		
-		// Rescale with skip indices
-		for(int i=0; i<npoints; i++) {
-			this.polyline[i] = polyline[skipIndices[i]] * scale;
-        }
 			
 		// Create vertices
 		for(int i=0; i<vertices.Length; i++) {
@@ -102,7 +81,7 @@ public class Tube
         }
 		
 		// Get polyline length
-		for(int i=0; i<npoints-1; i++) {
+		for(int i=0; i<polyline.Length-1; i++) {
 			length += Vector3.Distance(this.polyline[i], this.polyline[i+1]);
 		}
 		

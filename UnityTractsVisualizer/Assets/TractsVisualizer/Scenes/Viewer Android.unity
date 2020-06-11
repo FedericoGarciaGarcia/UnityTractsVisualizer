@@ -814,7 +814,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 0
+  m_Interactable: 1
   m_TargetGraphic: {fileID: 227663224}
   m_OnClick:
     m_PersistentCalls:
@@ -1971,6 +1971,7 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: b215c75a19ea68b40807310f79d10578, type: 2}
   colorStart: {r: 1, g: 0, b: 0, a: 1}
   colorEnd: {r: 0, g: 1, b: 0, a: 1}
+  lodVoxels: 100
   numberOfThreads: 1
   path: Resources\corpuscallosum.obj
   threadedDownload: 0
@@ -3695,8 +3696,9 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: b215c75a19ea68b40807310f79d10578, type: 2}
   colorStart: {r: 1, g: 0, b: 0, a: 1}
   colorEnd: {r: 0, g: 1, b: 0, a: 1}
+  lodVoxels: 100
   numberOfThreads: 7
-  path: Resources/corpuscallosum.obj
+  path: Resources/fibres.obj
   threadedDownload: 0
   loading: {fileID: 432661933}
   sliderResolution: {fileID: 2101932230}
@@ -3999,6 +4001,7 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: b215c75a19ea68b40807310f79d10578, type: 2}
   colorStart: {r: 1, g: 1, b: 1, a: 1}
   colorEnd: {r: 1, g: 1, b: 1, a: 1}
+  lodVoxels: 100
   numberOfThreads: 1
   path: Resources\corpuscallosum.obj
   threadedDownload: 0

@@ -54,7 +54,7 @@ public class TubeGeneratorFromObjMenu : TubeGeneratorFromObj
 	
 	public void SetRadius() {
 		radius = sliderRadius.value;
-		UpdateRadius();
+		//UpdateRadius();
 	}
 	
 	public void SetDequeSize() {
