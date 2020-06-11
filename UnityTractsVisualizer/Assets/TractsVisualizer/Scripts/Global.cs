@@ -4,13 +4,7 @@ using UnityEngine;
 
 public class Global : MonoBehaviour
 {
-	public static string objectURL;
-	
-	// Do not destroy between scenes
-	void Awake()
-    {
-        DontDestroyOnLoad(this.gameObject);
-    }
+	public static string objPath = null;
 	
     // Start is called before the first frame update
     void Start()

@@ -16,13 +16,13 @@ using System.Text;
 public class TubeGeneratorFromObj : TubeGenerator
 {
 	public string path; // Path or URL to file
-	public GameObject loading; // A GameObject that is disabled after the data is generated
 	public bool threadedDownload;
 	
 	void Start()
 	{
 		// We override path with SceneController's path
-		path = SceneController.objPath;
+		if(Global.objPath != null)
+			path = Global.objPath;
 		
 		// If its URL, download data in a coroutine, then in
 		if(path.StartsWith("https:") || path.StartsWith("http:")) {
@@ -37,26 +37,33 @@ public class TubeGeneratorFromObj : TubeGenerator
 	
 	void LoadFromFile() {
 		// Create OBJ reader
-		ObjReader objReader = new ObjReader();
+		try {
+			ObjReader objReader = new ObjReader();
+			
+			Vector3 [][] polylines = objReader.GetPolylinesFromFilePath(path);
 		
-		Vector3 [][] polylines = objReader.GetPolylinesFromFilePath(path);
-	
-		// Make sure to lock to avoid multithreading problems
-		lock(_enque) {
-			// Run the generation of polylines in the Main Thread
-			ExecuteOnMainThread.Enqueue(() => {  StartCoroutine(AfterLoading()); } );
-			ExecuteOnMainThread.Enqueue(() => {  StartCoroutine(Generate(polylines)); } );
-		};
+			// Make sure to lock to avoid multithreading problems
+			lock(_enque) {
+				// Run the generation of polylines in the Main Thread
+				ExecuteOnMainThread.Enqueue(() => {  StartCoroutine(AfterLoading()); } );
+				ExecuteOnMainThread.Enqueue(() => {  StartCoroutine(Generate(polylines)); } );
+			};
+		}
+		catch(Exception e) {
+			Debug.Log(e);
+			OnError();
+		}
 	}
 	
 	IEnumerator LoadFromURL(string url) {
-        UnityWebRequest www = UnityWebRequest.Get(url);
-        yield return www.SendWebRequest();
- 
-        if(www.isNetworkError || www.isHttpError) {
-            Debug.Log(www.error);
-        }
-        else {
+		UnityWebRequest www = UnityWebRequest.Get(url);
+		yield return www.SendWebRequest();
+
+		if(www.isNetworkError || www.isHttpError) {
+			Debug.Log(www.error);
+			OnError();
+		}
+		else {
 			// Or retrieve results as binary data
 			//byte[] byteArray = www.downloadHandler.data;
 		
@@ -76,28 +83,36 @@ public class TubeGeneratorFromObj : TubeGenerator
 			else {
 				LoadFromStream(reader);
 			}
-        }
+		}
     }
 	
 	void LoadFromStream(StreamReader reader) {
 		
-		// Create OBJ reader
-		ObjReader objReader = new ObjReader();
-	
-		Vector3 [][] polylines = objReader.GetPolylinesFromStreamReader(reader);
-	
-		// Make sure to lock to avoid multithreading problems
-		lock(_enque) {
-			// Run the generation of polylines in the Main Thread
-			ExecuteOnMainThread.Enqueue(() => {  StartCoroutine(AfterLoading()); } );
-			ExecuteOnMainThread.Enqueue(() => {  StartCoroutine(Generate(polylines)); } );
-		};
+		try {
+			// Create OBJ reader
+			ObjReader objReader = new ObjReader();
+		
+			Vector3 [][] polylines = objReader.GetPolylinesFromStreamReader(reader);
+		
+			// Make sure to lock to avoid multithreading problems
+			lock(_enque) {
+				// Run the generation of polylines in the Main Thread
+				ExecuteOnMainThread.Enqueue(() => {  StartCoroutine(AfterLoading()); } );
+				ExecuteOnMainThread.Enqueue(() => {  StartCoroutine(Generate(polylines)); } );
+			};
+		}
+		catch(Exception e) {
+			Debug.Log(e);
+			OnError();
+		}
 	}
 	
-	IEnumerator AfterLoading() {
-		if(loading != null)
-		loading.SetActive(false);
-		
+	// Do something after loading
+	protected virtual IEnumerator AfterLoading() {
 		yield return null;
+	}
+	
+	// Do something if error
+	protected virtual void OnError() {
 	}
 }

@@ -24,17 +24,17 @@ public class TubeGenerator : MonoBehaviour
 		
 	public int numberOfThreads = 1; // Number of threads used to generate tube.
 	
-	private Vector3 [][] polylines; // To store polylines data
-	private float   [][] radii;     // To store radius data
-	private GameObject [] actors;   // Gameobjects that will have tubes attached
-	private Tube [] tubes;          // Tubes
-	private bool [] attached;       // If actors have already have their tube attached
+	protected Vector3 [][] polylines; // To store polylines data
+	protected float   [][] radii;     // To store radius data
+	protected GameObject [] actors;   // Gameobjects that will have tubes attached
+	protected Tube [] tubes;          // Tubes
+	protected bool [] attached;       // If actors have already have their tube attached
 	
-	private int ncpus; // How many CPU cores are available
+	protected int ncpus; // How many CPU cores are available
 	
 	// For safe multithreading
-	private int nextLine;
-	private readonly object _lock  = new object();
+	protected int nextLine;
+	protected readonly object _lock  = new object();
 	protected readonly object _enque = new object();
 
 	// To dispatch coroutines
@@ -53,14 +53,7 @@ public class TubeGenerator : MonoBehaviour
 		radii = new float[polylines.Length][];
 		
 		// Set initial radius
-		for(int i=0; i<radii.Length; i++) {
-			
-			radii[i] = new float [polylines[i].Length];
-			
-			for(int j=0; j<radii[i].Length; j++) {
-				radii[i][j] = radius;
-			}
-		}
+		UpdateRadius();
 		
 		// Normalize if necessary
 		if(normalize) {
@@ -71,6 +64,16 @@ public class TubeGenerator : MonoBehaviour
 		UpdateTubes();
 	}
 	
+	protected void UpdateRadius() {
+		for(int i=0; i<radii.Length; i++) {
+			
+			radii[i] = new float [polylines[i].Length];
+			
+			for(int j=0; j<radii[i].Length; j++) {
+				radii[i][j] = radius;
+			}
+		}
+	}
 	
 	// Normalize
 	private void Normalize() {
@@ -124,6 +127,11 @@ public class TubeGenerator : MonoBehaviour
 		// To store tubes
 		tubes = new Tube[polylines.Length];
 		
+		Process();
+	}
+	
+	// Divide work into threads and start from the beginning
+	public void Process() {
 		// Init lock index
 		nextLine = 0;
 		
@@ -132,22 +140,6 @@ public class TubeGenerator : MonoBehaviour
 		
 		// If user wants less threads, set it to that
 		ncpus = numberOfThreads < ncpus ? numberOfThreads : ncpus;
-		
-		// Decimate points
-		int npoints = 0;
-		int ndecimatedpoints = 0;
-		
-		for(int i=0; i<polylines.Length; i++) {
-			// Total points
-			npoints += polylines[i].Length;
-			
-			// Decimated point
-			int npointsLine = (int)((1.0f - decimation) * (float)polylines[i].Length);
-			
-			if(npointsLine < 2)
-				npointsLine = 2;
-			ndecimatedpoints += npointsLine;
-		}
 		
 		// Create tubes using specified number of threads
 		if(ncpus > 0) {
@@ -177,6 +169,11 @@ public class TubeGenerator : MonoBehaviour
 	public virtual void Update()
 	{
 		// dispatch stuff on main thread
+		Dispatch();
+	}
+	
+	// Dispatch stuff on main thread
+	protected void Dispatch() {
 		int deque = 0;
 		while (deque < dequeSize && ExecuteOnMainThread.Count > 0)
 		{

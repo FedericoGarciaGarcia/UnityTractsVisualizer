@@ -7,15 +7,19 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 public class MouseController : MonoBehaviour
 {
 	public Transform pivot; // Transform to rotate with mouse
 	public Camera camera;   // Transform to rotate with mouse
+	public Camera cameraPostProcessing;   // Transform to rotate with mouse
 	public float fovMin;    // Min field of view
 	public float fovMax;    // Max field of view
 	public float rotationSpeed = 1.0f;  // Rotation speed
 	public float zoomSpeed = 1.0f;      // Zomming speed
+
+	private bool hold;
 
     // Start is called before the first frame update
     void Start()
@@ -26,7 +30,18 @@ public class MouseController : MonoBehaviour
     void Update()
     {
 		// If mouse is pressed, rotate
-        if (Input.GetMouseButton(0)) {
+        if (Input.GetMouseButtonDown(0)) {
+			// As long as the canvas is not being clicked over
+			if (!EventSystem.current.IsPointerOverGameObject()) {
+				hold = true;
+			}
+		}
+		
+		if (!Input.GetMouseButton(0)) {
+			hold = false;
+		}
+		
+		if(hold) {
 			// Rotate
 			pivot.Rotate(new Vector3(-Input.GetAxis("Mouse Y"), Input.GetAxis("Mouse X"), 0) * rotationSpeed);
 		}
@@ -37,8 +52,9 @@ public class MouseController : MonoBehaviour
 		if(camera.fieldOfView < fovMin)
 			camera.fieldOfView = fovMin;
 		
-		
 		if(camera.fieldOfView > fovMax)
 			camera.fieldOfView = fovMax;
+		
+		cameraPostProcessing.fieldOfView = camera.fieldOfView;
     }
 }
