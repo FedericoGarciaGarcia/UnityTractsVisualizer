@@ -1968,10 +1968,10 @@ MonoBehaviour:
   scale: 4
   radius: 0.008
   resolution: 12
+  lodDistance: 0.1
   material: {fileID: 2100000, guid: b215c75a19ea68b40807310f79d10578, type: 2}
   colorStart: {r: 1, g: 0, b: 0, a: 1}
   colorEnd: {r: 0, g: 1, b: 0, a: 1}
-  lodVoxels: 100
   numberOfThreads: 1
   path: Resources\corpuscallosum.obj
   threadedDownload: 0
@@ -3693,12 +3693,12 @@ MonoBehaviour:
   scale: 10
   radius: 0.03
   resolution: 5
+  lodDistance: 0.1
   material: {fileID: 2100000, guid: b215c75a19ea68b40807310f79d10578, type: 2}
   colorStart: {r: 1, g: 0, b: 0, a: 1}
   colorEnd: {r: 0, g: 1, b: 0, a: 1}
-  lodVoxels: 100
   numberOfThreads: 7
-  path: Resources/fibres.obj
+  path: Resources/corpuscallosum.obj
   threadedDownload: 0
   loading: {fileID: 432661933}
   sliderResolution: {fileID: 2101932230}
@@ -3998,10 +3998,10 @@ MonoBehaviour:
   scale: 4
   radius: 0.015
   resolution: 12
+  lodDistance: 0.1
   material: {fileID: 2100000, guid: b215c75a19ea68b40807310f79d10578, type: 2}
   colorStart: {r: 1, g: 1, b: 1, a: 1}
   colorEnd: {r: 1, g: 1, b: 1, a: 1}
-  lodVoxels: 100
   numberOfThreads: 1
   path: Resources\corpuscallosum.obj
   threadedDownload: 0
@@ -5733,7 +5733,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 983007453}
   m_Direction: 0
   m_MinValue: 0
-  m_MaxValue: 0.95
+  m_MaxValue: 5
   m_WholeNumbers: 0
   m_Value: 0
   m_OnValueChanged:

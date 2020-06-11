@@ -21,22 +21,6 @@ public class TubeGeneratorFromObjMenu : TubeGeneratorFromObj
 	public Text textLoading;
 	public GameObject imageLoading;
 	
-	public override void Update() {
-		// If update
-		if (Input.GetKeyDown("space")) {
-			Process();
-		}
-		
-		// dispatch stuff on main thread
-		Dispatch();
-		
-		// Enable or disable update button
-		/*lock(_lock) {
-			if(polylines != null)
-			buttonUpdate.interactable = nextLine == polylines.Length;
-		};*/
-	}
-	
 	protected override IEnumerator AfterLoading() {
 		if(loading != null)
 		loading.SetActive(false);

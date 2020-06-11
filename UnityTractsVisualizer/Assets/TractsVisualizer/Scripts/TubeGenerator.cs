@@ -18,10 +18,10 @@ public class TubeGenerator : MonoBehaviour
 	public float scale = 1;       // To resize the vertex data
     public float radius = 1;      // Thickness of the tube for LOD 0
 	public int resolution = 3;    // Number of sides for each tube
+	public float lodDistance = 0.1f; // Distance between polylines endpoints to consider similarity
 	public Material material;     // Texture (can be null)
 	public Color colorStart = Color.white; // Start color
 	public Color colorEnd   = Color.white; // End color
-	public int lodVoxels = 100;  // Group start and end points in this number of voxels      
 		
 	public int numberOfThreads = 1; // Number of threads used to generate tube.
 	
@@ -33,7 +33,7 @@ public class TubeGenerator : MonoBehaviour
 	protected Tube [] tubes;          // Tubes
 	protected bool [] attached;       // If actors have already have their tube attached
 	
-	protected Dictionary<Tuple<Vector3Int, Vector3Int>, List<int>> dictionaryLOD; // Key = voxel start, voxel end | Value = line IDs in those voxels
+	protected bool [] polylinesLODchecked; // Whether this polyline has already been matched
 	protected Vector3 [][] polylinesLOD; // To store LOD polylines data
 	protected float   [][] radiiLOD;     // To store LOD radius data
 	protected GameObject [] actorsLOD;   // Gameobjects that will have LODtubes attached
@@ -43,11 +43,13 @@ public class TubeGenerator : MonoBehaviour
 	
 	// For safe multithreading
 	protected int nextPreprocess;
+	protected int nextLod;
 	protected int nextLine;
 	protected int finishedPreprocess;
-	protected readonly object _dictionary = new object();
+	protected int finishedPolylinesLODchecked;
 	protected readonly object _lock  = new object();
 	protected readonly object _finishedPreprocess = new object();
+	protected readonly object _finishedPolylinesLODchecked = new object();
 	protected readonly object _enque = new object();
 
 	// To dispatch coroutines
@@ -57,11 +59,19 @@ public class TubeGenerator : MonoBehaviour
     {
 		yield return null;
 		
-		// Dictionary for LOD
-		dictionaryLOD = new Dictionary<Tuple<Vector3Int, Vector3Int>, List<int>>();
-		
 		// Use all original polylines
-		this.allpolylines = allpolylines;
+		this.allpolylines = new Vector3[allpolylines.Length][];
+		
+		// Deep copy
+		for(int i=0; i<allpolylines.Length; i++) {
+			this.allpolylines[i] = new Vector3[allpolylines[i].Length];
+			
+			for(int j=0; j<allpolylines[i].Length; j++) {
+				Vector3 v = allpolylines[i][j];
+				this.allpolylines[i][j] = new Vector3(v.x, v.y, v.z);
+			}
+		}
+		
 		polylines = new Vector3[allpolylines.Length][];
 		
 		Debug.Log(allpolylines.Length);
@@ -143,14 +153,15 @@ public class TubeGenerator : MonoBehaviour
 	
 	// Divide work into threads and start from the beginning
 	public void Process() {
-		// Clear dictionary
-		dictionaryLOD.Clear();
-		
 		// Init lock index
 		nextPreprocess = 0;
+		nextLod = 0;
 		nextLine = 0;
 		
 		finishedPreprocess = 0;
+		finishedPolylinesLODchecked = 0;
+		
+		polylinesLODchecked = new bool[polylines.Length];
 		
 		// Create tubes using specified number of threads
 		if(ncpus > 0) {
@@ -164,6 +175,7 @@ public class TubeGenerator : MonoBehaviour
 		// Do not use threads (for web)
 		else {
 			ThreadPreprocess();
+			ThreadCreateLOD();
 			ThreadCreateTubes();
 		}
 	}
@@ -203,68 +215,92 @@ public class TubeGenerator : MonoBehaviour
 			
 			if(x < allpolylines.Length) {
 				
-				// Estimate number of polylines and vertices
-				int npoints = (int)((1.0f-decimation) * (float)allpolylines[x].Length);
+				// Only decimate if necessary
+				if(decimation > 0) {
+					// List of decimated point
+					List<Vector3> list = new List<Vector3>();
 				
-				// If there are not even 2 points, the decimation was too much
-				if(npoints < 2) {
-					decimation = 1.0f;
-					npoints = allpolylines[x].Length;
+					// Add first point
+					list.Add(allpolylines[x][0]);
+						
+					// Add the second point
+					if(allpolylines[x].Length == 2) {
+						list.Add(allpolylines[x][1]);
+					}
+					// Add more points
+					else if(allpolylines[x].Length > 2) {
+						
+						// Origin vector
+						Vector3 v1 = allpolylines[x][2]-allpolylines[x][1];
+						
+						// Index of the current and next point
+						int ii=1;
+						int jj=3;
+						int last = 0;
+						
+						// Check all points
+						while(jj<allpolylines[x].Length) {
+							// Next vector
+							Vector3 v2 = allpolylines[x][jj]-allpolylines[x][ii];
+							
+							// Angle of vectors
+							float angle = Vector3.Angle(v1, v2);
+							
+							// If angle is less, do not add
+							if(angle < decimation) {
+							}
+							// Angle is greater, add points
+							else {
+								// Add previous to next point
+								list.Add(allpolylines[x][jj-1]);
+								last = jj-1;
+								
+								ii = jj-1;
+								
+								v1 = allpolylines[x][jj]-allpolylines[x][ii];
+							}
+							
+							// Advance
+							jj++;
+						}
+						
+						// Add last point if it was not added
+						if(last != allpolylines[x].Length-1) {
+							list.Add(allpolylines[x][allpolylines[x].Length-1]);
+						}
+					}
+					
+					// If after decimation there are less than 2 points, remake list
+					if(list.Count < 2) {
+						// List of decimated point
+						list = new List<Vector3>();
+					
+						// Add first and last points
+						list.Add(allpolylines[x][0]);
+						list.Add(allpolylines[x][allpolylines[x].Length-1]);
+					}
+					
+					// Make list to array
+					polylines[x] = list.ToArray();
+				}
+				else {
+					// Deep copy
+					polylines[x] = new Vector3[allpolylines[x].Length];
+					
+					for(int j=0; j<allpolylines[x].Length; j++) {
+						Vector3 v = allpolylines[x][j];
+						polylines[x][j] = new Vector3(v.x, v.y, v.z);
+					}
 				}
 				
-				// New polyline
-				polylines[x] = new Vector3[npoints];
-				
-				// Convert to one single polyline decimating
-				float skip = (float)allpolylines[x].Length/(float)npoints;
-				
-				int [] skipIndices = new int[npoints];
-				
-				float currentSkip = 0;
-				for(int i=0; i<npoints; i++) {
-					skipIndices[i] = (int)currentSkip;
-					currentSkip += skip;
-				}
-				
-				skipIndices[skipIndices.Length-1] = allpolylines[x].Length-1; // Make sure last vertex is the real last vertex
-				
-				// Set with skip indices
-				for(int i=0; i<npoints; i++) {
-					polylines[x][i] = allpolylines[x][skipIndices[i]];
-				}
-				 
 				// Radius
 				radii[x] = new float[polylines[x].Length];
 				
 				for(int j=0; j<radii[x].Length; j++) {
 					radii[x][j] = radius;
 				}
-				
-				// Get voxel positions
-				Vector3Int v1 = new Vector3Int((int)(polylines[x][0].x*lodVoxels),
-											   (int)(polylines[x][0].y*lodVoxels),
-											   (int)(polylines[x][0].z*lodVoxels));
-											   
-				Vector3Int v2 = new Vector3Int((int)(polylines[x][polylines[x].Length-1].x*lodVoxels),
-											   (int)(polylines[x][polylines[x].Length-1].y*lodVoxels),
-											   (int)(polylines[x][polylines[x].Length-1].z*lodVoxels));
-				
-				// Add to the dictionary
-				lock(_dictionary) {
-					Tuple<Vector3Int, Vector3Int> t = new Tuple<Vector3Int, Vector3Int>(v1, v2);
-					
-					// If it is a new value, create list first
-					if (!dictionaryLOD.ContainsKey(t)) {
-						dictionaryLOD.Add(t, new List<int>());
-					}
-					
-					// Add to the list this polyline ID
-					dictionaryLOD[new Tuple<Vector3Int, Vector3Int>(v1, v2)].Add(x);
-				}
 			}
 		}
-		
-		Debug.Log("Decimated!");
 		
 		// When done, clock out
 		lock(_finishedPreprocess) {
@@ -273,15 +309,58 @@ public class TubeGenerator : MonoBehaviour
 			// Whoever is last, must call the next threads to create tubes
 			if(finishedPreprocess == ncpus) {
 				for(int i=0; i<ncpus; i++) {
-					Thread t = new Thread(()=>ThreadCreateTubes());
+					Thread t = new Thread(()=>ThreadCreateLOD());
 					t.Start();
 				}
-		
-				Debug.Log("It is me!");
 			}
 		}
 	}
+	
+	// Find similar polylines by lazy matching
+	// TODO
+	public void ThreadCreateLOD() {
 		
+		// List of polylines to merge
+		/*List<Vector3> [] lists = new List<Vector3> [polylines.Length];
+		
+		// Find similar polylines
+		while(nextLod < polylines.Length) {
+
+			int x;
+			lock(_lock) {
+				x = nextLod;
+				nextLod++; // For the next thread
+			}
+			
+			// Create list
+			lists[x] = new List<Vector3>
+			
+			//
+			if(x < polylines.Length) {
+				// Find polylines closest to given LOD distance
+				for(int i=0; i<polylines.Length; i++) {
+					if(i != x) {
+						
+					}
+				}
+			}
+		}*/
+		
+		// When done, clock out
+		lock(_finishedPolylinesLODchecked) {
+			finishedPolylinesLODchecked++;
+			
+			// Whoever is last, must call the next threads to create tubes
+			if(finishedPolylinesLODchecked == ncpus) {
+				for(int i=0; i<ncpus; i++) {
+					Thread t = new Thread(()=>ThreadCreateTubes());
+					t.Start();
+				}
+			}
+		}
+	}
+	
+	// Create tubes
 	public void ThreadCreateTubes() {
 		
 		// Create tubes
@@ -306,8 +385,6 @@ public class TubeGenerator : MonoBehaviour
 				}
 			}
 		}
-		
-		Debug.Log("Done!");
     }
 	
 	// Coroutine to attach tube to actor
@@ -332,15 +409,6 @@ public class TubeGenerator : MonoBehaviour
 	
 	// Create a tube
 	void CreateTube(int i) {
-		// Create empty tube
-		tubes[i] = new Tube();
-		
-		// Generate data
-		tubes[i].Create(polylines[i], decimation, scale, radii[i], resolution);
-	}
-	
-	// Create a tube by merging
-	void MergeTube(int i) {
 		// Create empty tube
 		tubes[i] = new Tube();
 		
