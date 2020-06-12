@@ -1,21 +1,18 @@
 # UnityTractsVisualizer
-Tract data interaction and visualization with LOD in Unity.
-You can try the web app [here](https://htmlpreview.github.io/?https://github.com/FedericoGarciaGarcia/UnityTractsVisualizer/blob/development/Web/index.html). Multithreading is not supported on web.
+Tract data visualization in Unity.
+You can try the web app [here](https://htmlpreview.github.io/?https://github.com/FedericoGarciaGarcia/UnityTractsVisualizer/blob/master/Web/index.html). Multithreading is not supported on web.
 
-![Obj](https://raw.githubusercontent.com/FedericoGarciaGarcia/UnityTubeExtrusion/master/Images/Corpus%20callosum%20AO.jpg)
+![Obj](https://raw.githubusercontent.com/FedericoGarciaGarcia/UnityTractsVisualizer/master/Images/Application.png)
 
 ## Features
 
 * Tube extrusion.
 * Texturing.
 * Coloring.
-    * By polyline file order.
-    * By axis direction.
-    * By similarity.
 * Resolution.
 * Decimation by angle.
 * End capping.
-* Multithreading.
+* Multithreading (not supported in web).
 * Realtime.
 * Load data from URL.
 
@@ -35,12 +32,10 @@ OBJ files do not need to be included in Unity's Asset or Resources folder. URLs 
 
 ### *TubeGenerator* properties
 
-Before tube extrusion and LOD grouping, the following properties may be specified:
+Before tube extrusion, the following properties may be specified:
 
-* *LOD Distance Threshold*: if lines have this much distance, they will no merge.
-* *LOD*: how many levels of LOD should be generated.
 * *Deque size:* how many tubes are to be sent to the GPU each frame after extrusion. If value is too high, there will be a performance hit. 50 by default.
-* *Decimation Angle:* beween 0 and 180. Given three adyacent points P<sub>i</sub>, P<sub>i+1</sub> and P<sub>i+2</sub>, so that P<sub>j</sub> and P<sub>j+1</sub> are adjacent for all **j**.
+* *Decimation Angle:* points in a path with a smaller angle will be removed. 0 by default (no decimation).
 * *Scale:* rescaling of the polylines. 1 by default (no rescaling).
 * *Radius:* the tube 'thickness'. 1 by default.
 * *Resolution:* number of sides in each tube. 3 by default.
