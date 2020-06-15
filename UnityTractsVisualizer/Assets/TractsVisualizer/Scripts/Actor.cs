@@ -21,6 +21,9 @@ public class Actor : MonoBehaviour
         // Create mesh and attach
         meshRenderer = gameObject.AddComponent<MeshRenderer>();
         meshFilter   = gameObject.AddComponent<MeshFilter>();
+		// Set material
+        meshRenderer.sharedMaterial = new Material(Shader.Find("Standard"));
+        mesh = new Mesh();
     }
 	
 	// Set material to mesh
@@ -36,12 +39,10 @@ public class Actor : MonoBehaviour
 	
 	// Set mesh data from tube
 	public void SetTube(Tube tube) {
-		// Set material
-        meshRenderer.sharedMaterial = new Material(Shader.Find("Standard"));
 		
 		// Get tube and data
 		//this.tube = tube;
-		
+		DestroyImmediate(mesh, true);
         mesh = new Mesh();
 		
 		// Set new data

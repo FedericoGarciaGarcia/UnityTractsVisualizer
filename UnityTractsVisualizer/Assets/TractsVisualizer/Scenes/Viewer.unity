@@ -3163,7 +3163,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1228496402
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3176,7 +3176,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 42b4df767ccdeee43b23b618ec558d26, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  superSize: 4
+  superSize: 1
 --- !u!4 &1228496403
 Transform:
   m_ObjectHideFlags: 0
@@ -3651,7 +3651,7 @@ MonoBehaviour:
   colorStart: {r: 1, g: 0, b: 0, a: 1}
   colorEnd: {r: 0, g: 1, b: 0, a: 1}
   numberOfThreads: 0
-  path: Resources/corpuscallosum.obj
+  path: Resources/fibres.obj
   threadedDownload: 0
   loading: {fileID: 432661933}
   sliderResolution: {fileID: 2101932230}
@@ -3982,6 +3982,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1597371311}
   - component: {fileID: 1597371312}
+  - component: {fileID: 1597371313}
   m_Layer: 0
   m_Name: Pivot
   m_TagString: Untagged
@@ -4016,7 +4017,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8ceec3ccfe7c2eb47bef80775ffde6dd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: {x: 0, y: 20, z: 0}
+  speed: {x: 0, y: 72, z: 0}
+--- !u!114 &1597371313
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1597371310}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e39e7d2603fbb148b888a8202352d55, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  rotation: {x: 0, y: 10, z: 0}
 --- !u!1 &1614053753
 GameObject:
   m_ObjectHideFlags: 0
