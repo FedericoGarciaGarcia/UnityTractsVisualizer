@@ -26,18 +26,14 @@ public class TubeGenerator : MonoBehaviour
 	public int numberOfThreads = 1; // Number of threads used to generate tube
 	
 	private Vector3 [][] allpolylines; // Original polyline data
-	
+	 
 	protected Vector3 [][] polylines; // To store polylines data
 	protected float   [][] radii;     // To store radius data
 	protected GameObject [] actors;   // Gameobjects that will have tubes attached
 	protected Tube [] tubes;          // Tubes
 	protected bool [] attached;       // If actors have already have their tube attached
 	
-	protected bool [] polylinesLODchecked; // Whether this polyline has already been matched
-	protected Vector3 [][] polylinesLOD; // To store LOD polylines data
-	protected float   [][] radiiLOD;     // To store LOD radius data
-	protected GameObject [] actorsLOD;   // Gameobjects that will have LODtubes attached
-	protected Tube [] tubesLOD;          // LOD Tubes
+	protected Vector3 [][] polylinesLod; // LOD polylines
 	
 	protected int ncpus; // How many CPU cores are available
 	
@@ -146,7 +142,6 @@ public class TubeGenerator : MonoBehaviour
 		
 		// Create game objects
 		actors = new GameObject[polylines.Length];
-		actorsLOD = new GameObject[polylines.Length]; // LOD will have less than actors
 		
 		// Attach an actor to the game object
 		for(int i=0; i<actors.Length; i++) {
@@ -158,7 +153,6 @@ public class TubeGenerator : MonoBehaviour
 		
 		// To store tubes
 		tubes = new Tube[polylines.Length];
-		tubesLOD = new Tube[polylines.Length];
 		
 		Process();
 	}
@@ -174,8 +168,6 @@ public class TubeGenerator : MonoBehaviour
 		finishedPreprocess = 0;
 		finishedFindLOD    = 0;
 		finishedCreateLOD  = 0;
-		
-		polylinesLODchecked = new bool[polylines.Length];
 		
 		// Create tubes using specified number of threads
 		if(ncpus > 0) {
@@ -355,21 +347,23 @@ public class TubeGenerator : MonoBehaviour
 				nextFindLod++; // For the next thread
 			}
 			
-			// Get closest voxel at start and end
-			Vector3Int vs = GetClosestVoxel(polylines[x][0]);
-			Vector3Int ve = GetClosestVoxel(polylines[x][polylines[x].Length-1]);
-			
-			// Create tuple
-			Tuple<Vector3Int, Vector3Int> tuple = new Tuple<Vector3Int, Vector3Int>(vs, ve);
-			
-			lock(_dictionary) {
-				// If new tuple, create add new list
-				if(!dictionary.ContainsKey(tuple)) {
-					dictionary.Add(tuple, new List<int>());
-				}
+			if(x < polylines.Length) {
+				// Get closest voxel at start and end
+				Vector3Int vs = GetClosestVoxel(polylines[x][0]);
+				Vector3Int ve = GetClosestVoxel(polylines[x][polylines[x].Length-1]);
 				
-				// Add id of polyline to list
-				dictionary[tuple].Add(x);
+				// Create tuple
+				Tuple<Vector3Int, Vector3Int> tuple = new Tuple<Vector3Int, Vector3Int>(vs, ve);
+				
+				lock(_dictionary) {
+					// If new tuple, create add new list
+					if(!dictionary.ContainsKey(tuple)) {
+						dictionary.Add(tuple, new List<int>());
+					}
+					
+					// Add id of polyline to list
+					dictionary[tuple].Add(x);
+				}
 			}
 		}
 		
@@ -384,13 +378,8 @@ public class TubeGenerator : MonoBehaviour
 				dictionaryList = new List<int>[dictionary.Count];
 				dictionary.Values.CopyTo(dictionaryList, 0);
 				
-				for(int i=0; i<dictionaryList.Length; i++) {
-					String s = "";
-					for(int j=0; j<dictionaryList[i].Count; j++) {
-						s += dictionaryList[i][j]+" ";
-					}
-					Debug.Log(s);
-				}
+				// Create array for LOD polylines
+				polylinesLod = new Vector3[dictionary.Count][];
 					
 				for(int i=0; i<ncpus; i++) {
 					// Start
@@ -405,12 +394,17 @@ public class TubeGenerator : MonoBehaviour
 	public void ThreadCreateLOD() {
 		
 		// Merge polylines
-		while(nextCreateLod < polylines.Length) {
+		while(nextCreateLod < dictionaryList.Length) {
 
 			int x;
 			lock(_lock) {
 				x = nextCreateLod;
 				nextCreateLod++; // For the next thread
+			}
+			
+			if(x < dictionaryList.Length) {
+				// Merge the polylines
+				MergePolylines(dictionaryList[x], x);
 			}
 		}
 		
@@ -431,10 +425,114 @@ public class TubeGenerator : MonoBehaviour
 	}
 	
 	// Merge polylines
-	// TODO
-	private Vector3 [] MergePolylines(List<int> ids) {
-		// Get the average length
-		return null;
+	private void MergePolylines(List<int> ids, int x) {
+		// Create line with largest number of points
+		int maxPoints = polylines[ids[0]].Length;
+		
+		for(int i=1; i<ids.Count; i++) {
+			if(polylines[ids[i]].Length > maxPoints)
+				maxPoints = polylines[ids[i]].Length;
+		}
+		
+		Vector3[] polyline = new Vector3[maxPoints];
+		
+		// Divide the original polylines in an equidistant number of points
+		List<Vector3 []> equidistantLines = new List<Vector3 []>();
+		
+		for(int i=0; i<ids.Count; i++) {
+			equidistantLines.Add(GetEquidistantPolyline(ids[i], maxPoints));
+		}
+		
+		// Merge the polylines
+		for(int i=0; i<maxPoints; i++) {
+			// Sum of every point
+			for(int j=0; j<equidistantLines.Count; j++) {
+				polyline[i] += equidistantLines[j][i];
+			}
+			
+			// Average
+			polyline[i] /= (float)equidistantLines.Count;
+			polyline[i] = equidistantLines[0][i];
+			
+		}
+		
+		// Make the LOD polyline this one
+		polylinesLod[x] = polyline;
+		
+		// Radius
+		radii[x] = new float[maxPoints];
+		
+		for(int i=0; i<maxPoints; i++) {
+			float radiusAverage = 0;
+			
+			for(int j=0; j<equidistantLines.Count; j++) {
+				radiusAverage += Vector3.Distance(polyline[i], equidistantLines[j][i]);
+			}
+			radiusAverage /= (float)equidistantLines.Count;
+			
+			radii[x][i] = Mathf.Max(radius, radiusAverage);
+		}
+		
+		// Make it soft
+		SmoothPolylineLodRadius(x);
+	}
+	
+	// Smooth LoD polyline with gauss
+	float [] kernel = new float[7]{0.00598f, 0.060626f, 0.241843f, 0.383103f, 0.241843f, 0.060626f, 0.00598f};
+	
+	private void SmoothPolylineLodRadius(int id) {
+		Debug.Log("Oh boy!");
+		// New smooth radii
+		float [] radiiSmooth = new float[radii[id].Length];
+		
+		// Soft
+		for(int i=0; i<radii[id].Length; i++) {
+			for(int j=0; j<kernel.Length; j++) {
+				
+				int p=i+j-kernel.Length/2;
+				
+				if(p < 0)
+					p = 0;
+				
+				if(p >= radii[id].Length)
+					p = radii[id].Length-1;
+				
+				radiiSmooth[i] += radii[id][p] * kernel[j];
+			}
+		}
+		
+		// Make it the new radii
+		radii[id] = radiiSmooth;
+	}
+	
+	// Given the id of a polyline, create a new one with a number of n equidistant points
+	private Vector3[] GetEquidistantPolyline(int id, int n) {
+		// Create empty line
+		Vector3 [] polyline = new Vector3[n];
+		
+		// Step size
+		float stepSize = (float)(polylines[id].Length-1)/(float)n;
+
+		// Copy data
+		float step = 0;
+		for(int i=0; i<n-1; i++) {
+			// The point is going to be the interpolation between this point and the next one
+			step = stepSize*i;
+			
+			// Alfa and beta
+			// Given point i and i+1, if alfa is 1 the new point is i;
+			// if beta is 1, the new point is i+1
+			float beta = step-(int)step;
+			float alfa = 1.0f-beta;
+			
+			polyline[i] = polylines[id][(int)step]*alfa + polylines[id][(int)step+1]*beta;
+		}
+		
+		// Put the last point
+		polyline[n-1] = polylines[id][polylines[id].Length-1];
+		
+		// Return new polyline
+		return polyline;
 	}
 	
 	// Get the voxel position of point v
@@ -475,20 +573,35 @@ public class TubeGenerator : MonoBehaviour
 	IEnumerator AttachTubeToGameobject(int i) {
 		yield return null;
 		
-		// Give tube data to gameobject's actor
-		actors[i].GetComponent<Actor>().SetTube(tubes[i]);
-		
-		// Give it color
-		float lerp = (float)i/(float)polylines.Length;
-		actors[i].GetComponent<Actor>().SetMaterial(material);
-		actors[i].GetComponent<Actor>().SetColor(Color.Lerp(colorStart, colorEnd, lerp));
-		
-		if(!attached[i]) {
-			actors[i].transform.localPosition += transform.position;
-			actors[i].transform.localEulerAngles += transform.eulerAngles;
+		// If LOD is on, disable gameobjects past the size of LOD tubes
+		if(lod && i >= polylinesLod.Length) {
+			// Deativate
+			actors[i].SetActive(false);
 		}
+		else {
+			// Activate
+			actors[i].SetActive(true);
+			
+			// Give tube data to gameobject's actor
+			actors[i].GetComponent<Actor>().SetTube(tubes[i]);
+			
+			if(!attached[i]) {
+				actors[i].transform.localPosition += transform.position;
+				actors[i].transform.localEulerAngles += transform.eulerAngles;
+			}
+			
+			// Give it color
+			float lerp;
+			if(lod)
+				lerp = (float)i/(float)polylinesLod.Length;
+			else
+				lerp = (float)i/(float)polylines.Length;
 		
-		attached[i] = true;
+			actors[i].GetComponent<Actor>().SetMaterial(material);
+			actors[i].GetComponent<Actor>().SetColor(Color.Lerp(colorStart, colorEnd, lerp));
+			
+			attached[i] = true;
+		}
 	}
 	
 	// Create a tube
@@ -497,6 +610,12 @@ public class TubeGenerator : MonoBehaviour
 		tubes[i] = new Tube();
 		
 		// Generate data
-		tubes[i].Create(polylines[i], decimation, scale, radii[i], resolution);
+		if(lod) {
+			if(i < polylinesLod.Length)
+				tubes[i].Create(polylinesLod[i], decimation, scale, radii[i], resolution);
+		}
+		else {
+			tubes[i].Create(polylines[i], decimation, scale, radii[i], resolution);
+		}
 	}
 }

@@ -17,7 +17,9 @@ public class TubeGeneratorFromObjMenu : TubeGeneratorFromObj
 	public Slider sliderDecimation;
 	public Slider sliderRadius;
 	public Slider sliderDequeSize;
+	public Slider sliderVoxelSize;
 	public Button buttonUpdate;
+	public Toggle toggleLod;
 	public Text textLoading;
 	public GameObject imageLoading;
 	
@@ -43,6 +45,14 @@ public class TubeGeneratorFromObjMenu : TubeGeneratorFromObj
 	
 	public void SetDequeSize() {
 		dequeSize = (int)sliderDequeSize.value;
+	}
+	
+	public void SetVoxelSize() {
+		voxelCount = (int)sliderVoxelSize.value;
+	}
+	
+	public void SetLod() {
+		lod = toggleLod.isOn;
 	}
 	
 	// Do something if error
