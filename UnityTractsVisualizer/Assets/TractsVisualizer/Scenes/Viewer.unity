@@ -1914,13 +1914,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b13ab886bd18b224b959abebae924f4f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  normalize: 0
+  lod: 0
   dequeSize: 50
   decimation: 0.5
   scale: 4
   radius: 0.008
   resolution: 12
-  lodDistance: 0.1
+  voxelCount: 100
   material: {fileID: 2100000, guid: b215c75a19ea68b40807310f79d10578, type: 2}
   colorStart: {r: 1, g: 0, b: 0, a: 1}
   colorEnd: {r: 0, g: 1, b: 0, a: 1}
@@ -3640,17 +3640,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 979df56ca25e2ff45add9deb24a2ef3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  normalize: 1
+  lod: 0
   dequeSize: 10
   decimation: 0
   scale: 10
   radius: 0.03
   resolution: 5
-  lodDistance: 0.1
+  voxelCount: 5
   material: {fileID: 2100000, guid: b215c75a19ea68b40807310f79d10578, type: 2}
   colorStart: {r: 1, g: 0, b: 0, a: 1}
   colorEnd: {r: 0, g: 1, b: 0, a: 1}
-  numberOfThreads: 0
+  numberOfThreads: 7
   path: Resources/fibres.obj
   threadedDownload: 0
   loading: {fileID: 432661933}
@@ -3945,13 +3945,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b13ab886bd18b224b959abebae924f4f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  normalize: 0
+  lod: 0
   dequeSize: 50
   decimation: 0.5
   scale: 4
   radius: 0.015
   resolution: 12
-  lodDistance: 0.1
+  voxelCount: 100
   material: {fileID: 2100000, guid: b215c75a19ea68b40807310f79d10578, type: 2}
   colorStart: {r: 1, g: 1, b: 1, a: 1}
   colorEnd: {r: 1, g: 1, b: 1, a: 1}

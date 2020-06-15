@@ -12,18 +12,18 @@ using UnityEngine;
 
 public class TubeGenerator : MonoBehaviour
 {
-	public bool normalize;        // Normalize data between 0 and 1
+	public bool lod;              // Whether to use LOD or not
 	public int dequeSize = 10000; // How many generated tubes to be sent to the GPU every frame   
 	public float decimation = 0;  // Decimation level, between 0 and 1. If set to 0, each polyline will have only two vertices (the endpoints)
 	public float scale = 1;       // To resize the vertex data
     public float radius = 1;      // Thickness of the tube for LOD 0
 	public int resolution = 3;    // Number of sides for each tube
-	public float lodDistance = 0.1f; // Distance between polylines endpoints to consider similarity
+	public int voxelCount = 100;  // Number of voxels per axis in space
 	public Material material;     // Texture (can be null)
 	public Color colorStart = Color.white; // Start color
 	public Color colorEnd   = Color.white; // End color
 		
-	public int numberOfThreads = 1; // Number of threads used to generate tube.
+	public int numberOfThreads = 1; // Number of threads used to generate tube
 	
 	private Vector3 [][] allpolylines; // Original polyline data
 	
@@ -43,15 +43,26 @@ public class TubeGenerator : MonoBehaviour
 	
 	// For safe multithreading
 	protected int nextPreprocess;
-	protected int nextLod;
+	protected int nextFindLod;
+	protected int nextCreateLod;
 	protected int nextLine;
 	protected int finishedPreprocess;
-	protected int finishedPolylinesLODchecked;
+	protected int finishedFindLOD;
+	protected int finishedCreateLOD;
 	protected readonly object _lock  = new object();
 	protected readonly object _finishedPreprocess = new object();
-	protected readonly object _finishedPolylinesLODchecked = new object();
+	protected readonly object _finishedFindLOD = new object();
+	protected readonly object _finishedCreateLOD = new object();
+	protected readonly object _dictionary = new object();
 	protected readonly object _enque = new object();
 
+	// Dictionary of polylines in the same voxel to merge
+	// Given a Start and End voxel position, save list of polyline IDs 
+	private Dictionary<Tuple<Vector3Int, Vector3Int>, List<int>> dictionary;
+	
+	// List that contains the entries of the dictionary (the lists of polylines ids)
+	private List<int> [] dictionaryList;
+		
 	// To dispatch coroutines
 	public readonly Queue<Action> ExecuteOnMainThread = new Queue<Action>();
 	
@@ -79,16 +90,17 @@ public class TubeGenerator : MonoBehaviour
 		// Radius
 		radii = new float[allpolylines.Length][];
 		
+		// Create dictionary
+		dictionary = new Dictionary<Tuple<Vector3Int, Vector3Int>, List<int>>();
+		
 		// Number of CPUS to use for tubing
 		ncpus = SystemInfo.processorCount;
 		
 		// If user wants less threads, set it to that
 		ncpus = numberOfThreads < ncpus ? numberOfThreads : ncpus;
 		
-		// Normalize if necessary (original polylines)
-		if(normalize) {
-			Normalize();
-		}
+		// Normalize data
+		Normalize();
 		
 		// Generate tubes
 		UpdateTubes();
@@ -155,11 +167,13 @@ public class TubeGenerator : MonoBehaviour
 	public void Process() {
 		// Init lock index
 		nextPreprocess = 0;
-		nextLod = 0;
-		nextLine = 0;
+		nextFindLod    = 0;
+		nextCreateLod  = 0;
+		nextLine       = 0;
 		
 		finishedPreprocess = 0;
-		finishedPolylinesLODchecked = 0;
+		finishedFindLOD    = 0;
+		finishedCreateLOD  = 0;
 		
 		polylinesLODchecked = new bool[polylines.Length];
 		
@@ -175,6 +189,7 @@ public class TubeGenerator : MonoBehaviour
 		// Do not use threads (for web)
 		else {
 			ThreadPreprocess();
+			ThreadFindLOD();
 			ThreadCreateLOD();
 			ThreadCreateTubes();
 		}
@@ -307,8 +322,78 @@ public class TubeGenerator : MonoBehaviour
 			finishedPreprocess++;
 			
 			// Whoever is last, must call the next threads to create tubes
+			dictionary.Clear();     // Clear dictionary
+			
 			if(finishedPreprocess == ncpus) {
+				
 				for(int i=0; i<ncpus; i++) {
+					
+					// If LOD
+					if(lod) {
+						Thread t = new Thread(()=>ThreadFindLOD());
+						t.Start();
+					}
+					// Otherwise, make original polylines
+					else  {
+						Thread t = new Thread(()=>ThreadCreateTubes());
+						t.Start();
+					}
+				}
+			}
+		}
+	}
+	
+	// Find similar polylines by voxel matching
+	public void ThreadFindLOD() {
+		
+		// Make polyline snap to closest voxel
+		while(nextFindLod < polylines.Length) {
+
+			int x;
+			lock(_lock) {
+				x = nextFindLod;
+				nextFindLod++; // For the next thread
+			}
+			
+			// Get closest voxel at start and end
+			Vector3Int vs = GetClosestVoxel(polylines[x][0]);
+			Vector3Int ve = GetClosestVoxel(polylines[x][polylines[x].Length-1]);
+			
+			// Create tuple
+			Tuple<Vector3Int, Vector3Int> tuple = new Tuple<Vector3Int, Vector3Int>(vs, ve);
+			
+			lock(_dictionary) {
+				// If new tuple, create add new list
+				if(!dictionary.ContainsKey(tuple)) {
+					dictionary.Add(tuple, new List<int>());
+				}
+				
+				// Add id of polyline to list
+				dictionary[tuple].Add(x);
+			}
+		}
+		
+		// When done, clock out
+		lock(_finishedFindLOD) {
+			finishedFindLOD++;
+			
+			// Whoever is last, must call the next step
+			if(finishedFindLOD == ncpus) {
+					
+				// Make dictionary to list
+				dictionaryList = new List<int>[dictionary.Count];
+				dictionary.Values.CopyTo(dictionaryList, 0);
+				
+				for(int i=0; i<dictionaryList.Length; i++) {
+					String s = "";
+					for(int j=0; j<dictionaryList[i].Count; j++) {
+						s += dictionaryList[i][j]+" ";
+					}
+					Debug.Log(s);
+				}
+					
+				for(int i=0; i<ncpus; i++) {
+					// Start
 					Thread t = new Thread(()=>ThreadCreateLOD());
 					t.Start();
 				}
@@ -316,48 +401,47 @@ public class TubeGenerator : MonoBehaviour
 		}
 	}
 	
-	// Find similar polylines by lazy matching
-	// TODO
+	// Merge polylines
 	public void ThreadCreateLOD() {
 		
-		// List of polylines to merge
-		/*List<Vector3> [] lists = new List<Vector3> [polylines.Length];
-		
-		// Find similar polylines
-		while(nextLod < polylines.Length) {
+		// Merge polylines
+		while(nextCreateLod < polylines.Length) {
 
 			int x;
 			lock(_lock) {
-				x = nextLod;
-				nextLod++; // For the next thread
+				x = nextCreateLod;
+				nextCreateLod++; // For the next thread
 			}
-			
-			// Create list
-			lists[x] = new List<Vector3>
-			
-			//
-			if(x < polylines.Length) {
-				// Find polylines closest to given LOD distance
-				for(int i=0; i<polylines.Length; i++) {
-					if(i != x) {
-						
-					}
-				}
-			}
-		}*/
+		}
 		
 		// When done, clock out
-		lock(_finishedPolylinesLODchecked) {
-			finishedPolylinesLODchecked++;
+		lock(_finishedCreateLOD) {
+			finishedCreateLOD++;
 			
-			// Whoever is last, must call the next threads to create tubes
-			if(finishedPolylinesLODchecked == ncpus) {
+			// Whoever is last, must call the next step
+			if(finishedCreateLOD == ncpus) {
 				for(int i=0; i<ncpus; i++) {
+					
+					// Start
 					Thread t = new Thread(()=>ThreadCreateTubes());
 					t.Start();
 				}
 			}
 		}
+	}
+	
+	// Merge polylines
+	// TODO
+	private Vector3 [] MergePolylines(List<int> ids) {
+		// Get the average length
+		return null;
+	}
+	
+	// Get the voxel position of point v
+	private Vector3Int GetClosestVoxel(Vector3 v) {
+		Vector3 vv = v*(float)voxelCount;
+		
+		return new Vector3Int((int)Mathf.Round(vv.x), (int)Mathf.Round(vv.y), (int)Mathf.Round(vv.z));
 	}
 	
 	// Create tubes
