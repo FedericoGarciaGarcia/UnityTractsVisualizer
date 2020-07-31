@@ -1,6 +1,6 @@
 # UnityTractsVisualizer
 Tract data visualization in Unity.
-You can try the web app [here](https://htmlpreview.github.io/?https://github.com/FedericoGarciaGarcia/UnityTractsVisualizer/blob/master/Web/index.html). Multithreading is not supported on web.
+You can try the web app [here](https://federicogarcia.site/unitytractsvisualizer). Multithreading is not supported on web.
 
 ![Obj](https://raw.githubusercontent.com/FedericoGarciaGarcia/UnityTractsVisualizer/master/Images/Application.png)
 
